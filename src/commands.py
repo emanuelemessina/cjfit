@@ -54,3 +54,6 @@ def parent_keep_transform(child, parent):
 def hide(object):
     object.hide_set(True)
     object.hide_render = True
+
+def update_scene():
+    bpy.context.view_layer.update()

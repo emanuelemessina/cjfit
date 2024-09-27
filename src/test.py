@@ -50,9 +50,8 @@ def fix_pca_xy(corners, bounding_box):
     bounding_box.rotation_euler = basis.to_euler()
     commands.apply_rotation()
 
-def run(cylinder):
-        
-    jig = commands.get_active_object()
+def run(jig, d, h):
+
     commands.origin_to_geometry()
     commands.apply_rotation()
     commands.apply_scale()
@@ -69,11 +68,8 @@ def run(cylinder):
     [pca_rotate(ch) for i in range(3)] # make it converge
 
     bb = commands.duplicate(ch)
-    
     commands.rename(bb, f"{ch.name} BB")
-    
     commands.parent_keep_transform(ch, bb)
-    
     corners = modifiers.bounding_box(bb)
     
     # T1
@@ -82,22 +78,20 @@ def run(cylinder):
     # fix pca x-y assignment
     fix_pca_xy(corners,bb)
     
-    rotation_step = math.radians(1)  # Small constant angle to rotate (1 degree in radians)
-    max_rotation = math.radians(90)  # Maximum allowable rotation (90 degrees in radians)
-    upper_z_bound = 1  # Define the upper z-boundary
-    lower_z_bound = -1  # Define the lower z-boundary
+    rotation_step = math.radians(1)
+    max_rotation = math.radians(90)
+    upper_z_bound = h/2  # Define the upper z-boundary
+    lower_z_bound = -h/2  # Define the lower z-boundary
     adjustment_step = 0.01 
 
-    # Function to check if object is within the z-boundary
-    def check_z_boundaries():
-        commands.apply_rotation()
-        
+    def check_boundaries_intersections(axis, lower_bound, upper_bound):
+
         world_vertices = [ch.matrix_world @ v.co for v in ch.data.vertices]
         
-        z_values = [v.z for v in world_vertices]
+        axis_values = [getattr(v,axis) for v in world_vertices]
         
-        crosses_lower = any(z < lower_z_bound for z in z_values)
-        crosses_upper = any(z > upper_z_bound for z in z_values)
+        crosses_lower = any(a < lower_bound for a in axis_values)
+        crosses_upper = any(a > upper_bound for a in axis_values)
         
         return crosses_lower, crosses_upper
 
@@ -107,14 +101,13 @@ def run(cylinder):
         elif direction == 'up':
             bb.location.z += adjustment_step
 
-    # Rotating the object iteratively
     total_rotation = 0.0
-    
-    commands.select_single(ch)
 
     while total_rotation < max_rotation:
         
-        crosses_lower, crosses_upper = check_z_boundaries()
+        commands.update_scene() # recalc local matrices
+
+        crosses_lower, crosses_upper = check_boundaries_intersections('z', lower_z_bound, upper_z_bound)
         
         # If no boundaries are crossed, stop the rotation
         if not crosses_lower and not crosses_upper:
@@ -132,10 +125,11 @@ def run(cylinder):
         # If both boundaries are crossed, continue rotating
         
         # Rotate the object by a small step along the X-axis
+        
         bb.rotation_euler[0] += rotation_step
         total_rotation += rotation_step
-            
-    bpy.context.view_layer.update()
+                
+    commands.apply_rotation()
     
 
 

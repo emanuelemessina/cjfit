@@ -2,13 +2,13 @@ import bpy
 
 name = "CJFIT_Cylinder"
 
-def update(self, context):
+def update(props, context):
     remove_existing(context)
     
     bpy.ops.mesh.primitive_cylinder_add(
-        radius=self.radius,
-        depth=self.depth,
-        vertices=self.vertices,
+        radius=props.radius,
+        depth=props.depth,
+        vertices=64,
         location=(0, 0, 0)
     )
 
