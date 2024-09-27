@@ -21,7 +21,7 @@ class TestButton(bpy.types.Operator):
         commands.select_single(jig)
 
         # run test
-        test.run(jig, props.radius * 2, props.depth)
+        test.run(self, jig, props.radius, props.depth)
         
         return {'FINISHED'}
 
