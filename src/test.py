@@ -36,26 +36,22 @@ def run(operator, jig, r, h):
     fix_pca_xy(corners,bb)
     
     # save initial transform
-    initial_location = bb.location.copy()
-    initial_rotation = bb.rotation_euler.copy()
+    initial_transform = transform.save(bb)
 
     # try remove vertical intersection (rotate along second shortest component)
-    if intersections.try_rotate_adjust(bb, ch, RotationAxis.x, Axis.z, -h/2, h/2):
-        # check for horizontal intersections
-        crosses_left, crosses_right = intersections.get_boundaries_crosses(ch, Axis.y, -r, r)
-        if crosses_left or crosses_right:
-            # horizontal intersections (present or created after removing vertical ones)
-            # roll back and try with the shortest component
-            bb.location = initial_location
-            bb.rotation_euler = initial_rotation
-            
-            operator.report({'INFO'}, "Doesn't fit")
-        else:    
+    if intersections.try_remove_vertical(bb, ch, RotationAxis.x, Axis.y, r, h):
+        # removed, now check top view
+        operator.report({'INFO'}, "Fits!")
+    else:
+        # roll back and try rotating along shortest component
+        operator.report({'INFO'}, "Cannot remove intersections w/ 1st hor component, trying 2nd...")
+        transform.store(bb, initial_transform)
+        if intersections.try_remove_vertical(bb, ch, RotationAxis.y, Axis.x, r, h):
             # removed, now check top view
             operator.report({'INFO'}, "Fits!")
-    else:
-        # still vertical intersections
-        operator.report({'INFO'}, "Doesn't fit")
+        else:
+            # cannot remove vertical intersections, failed
+            operator.report({'INFO'}, "Doesn't fit: cannot remove axis-aligned intersections")
     
 
 

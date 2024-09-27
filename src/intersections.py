@@ -1,6 +1,6 @@
 import math
 from . import transform
-from .transform import Direction
+from .transform import Direction, Axis
 from . import commands
 import bpy
 
@@ -54,10 +54,22 @@ def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, adjust_axis, low
 
         # both boundaries are crossed, continue rotating
         
-        # Rotate the object by a small step along the X-axis
-        
         bounding_box.rotation_euler[rotation_axis.value] += rotation_step
         total_rotation += rotation_step
         commands.update_scene() # recalc local matrices
     
     return solved
+
+def try_remove_vertical(bounding_box, convex_hull, rotation_axis, horizontal_axis, radius, height):
+    if try_rotate_adjust(bounding_box, convex_hull, rotation_axis, Axis.z, -height/2, height/2):
+        # check horizontal intersections
+        crosses_left, crosses_right = get_boundaries_crosses(convex_hull, horizontal_axis, -radius, radius)
+        if crosses_left or crosses_right:
+            # horizontal intersections (present or created by rotation)
+            return False
+        else:
+            # intersections removed
+            return True
+    else:
+        # cannot remove vertical intersections
+        return False

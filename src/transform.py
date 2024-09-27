@@ -26,3 +26,11 @@ def nudge(object, axis, direction, step=adjustment_step):
     coord += direction*step
     setattr(object.location, axis, coord)
     commands.update_scene()
+
+def save(object):
+    return (object.location.copy(), object.rotation_euler.copy())
+
+def store(object, transform):
+    object.location = transform[0]
+    object.rotation_euler = transform[1]
+    commands.update_scene()
