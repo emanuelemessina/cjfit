@@ -2,6 +2,7 @@ import math
 from . import transform
 from .transform import Direction, Axis
 from . import commands
+from collections import deque
 
 def get_world_vertices(object):
     return [object.matrix_world @ v.co for v in object.data.vertices]
@@ -75,7 +76,6 @@ def are_adjacent_quadrants(quadrants):
         return True
     elif n == 2:
         # If there are exactly 2 quadrants, check if they are adjacent
-        quadrants = list(quadrants)
         return abs(quadrants[0]-quadrants[1]) != 2
     else:
         # More than 2 quadrants -> not adjacent
@@ -92,21 +92,37 @@ def get_distal_outlier_vertex(convex_hull, radius):
             outliers.append((v, norm))
             quadrants.add(get_vertex_quadrant(v))
     
+    quadrants = list(quadrants)
+
     if len(outliers) == 0:
-        return None
+        return None, None
     
     if are_adjacent_quadrants(quadrants):
-        return max(outliers, key=lambda item: item[1])
+        return max(outliers, key=lambda item: item[1])[0], quadrants
     else:
-        return -1
+        return -1, quadrants
 
 def center_adjust_radial(bounding_box, convex_hull, radius):
-    distal_v = get_distal_outlier_vertex(convex_hull, radius)
-    if distal_v == -1:
-        return False # cannot remove intersections (non adjacent quadrants)
-    while distal_v is not None:
-        transform.attract(bounding_box, distal_v)
-    return True # removed intersections
+    quadrants_history = deque(maxlen=4)  # to store last few quadrant states
+        
+    while True:
+        distal_v, quadrants = get_distal_outlier_vertex(convex_hull, radius)
+        
+        if distal_v == -1:
+            return False # cannot remove intersections (non adjacent quadrants)
+        if distal_v is not None:
+            quadrants_history.append(quadrants) # register current quadrants occupied
+
+            if len(quadrants_history) == 4:
+                if quadrants_history[0] == quadrants_history[2] and quadrants_history[1] == quadrants_history[3]:
+                    # deadlock
+                    return False
+                
+            transform.attract(bounding_box, distal_v)
+            
+            continue
+        else:
+            return True  # removed intersections
 
 def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, rotation_mode='global', adjust_mode='axial', adjust_axis=None, radius=None, bounds=None, max_rotation=transform.max_rotation):
 

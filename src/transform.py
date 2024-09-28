@@ -37,7 +37,7 @@ def nudge(object, axis, direction,):
     commands.update_scene()
 
 def attract(object, vertex):
-    nudge_vector = Vector((-vertex.co.x,-vertex.co.y,0)).normalized()*adjustment_step
+    nudge_vector = Vector((-vertex.x,-vertex.y,0)).normalized()*adjustment_step
     object.location += nudge_vector
     commands.update_scene()
 
