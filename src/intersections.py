@@ -119,10 +119,20 @@ def center_adjust_radial(bounding_box, convex_hull, radius):
                     return False
                 
             transform.attract(bounding_box, distal_v)
-            
+
             continue
         else:
             return True  # removed intersections
+
+def center_adjust(bounding_box, convex_hull, mode='axial', adjust_axis=None, radius=None, bounds=None):
+    if mode == 'axial':
+        if center_adjust_axial(bounding_box, convex_hull, adjust_axis, bounds):
+            return True
+    else:
+        if center_adjust_radial(bounding_box, convex_hull, radius):
+            return True
+    
+    return False
 
 def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, rotation_mode='global', adjust_mode='axial', adjust_axis=None, radius=None, bounds=None, max_rotation=transform.max_rotation):
 
@@ -130,13 +140,9 @@ def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, rotation_mode='g
 
     while total_rotation < max_rotation:
         
-        if adjust_mode == 'axial':
-            if center_adjust_axial(bounding_box, convex_hull, adjust_axis, bounds):
-                return True
-        else:
-            if center_adjust_radial(bounding_box, convex_hull, radius):
-                return True
-
+        if center_adjust(bounding_box, convex_hull, adjust_mode, adjust_axis, radius, bounds):
+            return True
+        
         # still radial intersections, continue rotating
         
         if rotation_mode == 'local':
@@ -146,8 +152,9 @@ def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, rotation_mode='g
 
         total_rotation += transform.rotation_step
         commands.update_scene() # recalc local matrices
-    
-    return False
+
+    # check if last rotation resolved
+    return center_adjust(bounding_box, convex_hull, adjust_mode, adjust_axis, radius, bounds)
 
 def try_remove_diagonal(bounding_box, convex_hull, radius, height):
     # try to rotate adjust circular around local z axis
