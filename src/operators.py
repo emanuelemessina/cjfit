@@ -19,9 +19,10 @@ class TestButton(bpy.types.Operator):
 
         # reselect jig
         commands.select_single(jig)
-
+        
         # run test
-        test.run(self, jig, props.radius, props.depth)
+        msg = test.run(jig, props.radius, props.depth)
+        self.report({'INFO'}, msg)
         
         return {'FINISHED'}
 

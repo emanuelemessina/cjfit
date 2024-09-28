@@ -4,10 +4,10 @@ from . import modifiers
 from enum import Enum
 from .pca import pca_rotate, fix_pca_xy
 from . import transform
-from .transform import Axis, Direction, RotationAxis
+from .transform import Axis, Direction
 from . import intersections
 
-def run(operator, jig, r, h):
+def run(jig, r, h):
 
     commands.origin_to_geometry()
     commands.apply_rotation()
@@ -38,20 +38,25 @@ def run(operator, jig, r, h):
     # save initial transform
     initial_transform = transform.save(bb)
 
-    # try remove vertical intersection (rotate along second shortest component)
-    if intersections.try_remove_vertical(bb, ch, RotationAxis.x, Axis.y, r, h):
+    # try remove aa intersections (rotate along second shortest component)
+
+    if intersections.try_remove_axis_aligned(bb, ch, Axis.x, Axis.y, r, h):
         # removed, now check top view
-        operator.report({'INFO'}, "Fits!")
-    else:
-        # roll back and try rotating along shortest component
-        operator.report({'INFO'}, "Cannot remove intersections w/ 1st hor component, trying 2nd...")
-        transform.store(bb, initial_transform)
-        if intersections.try_remove_vertical(bb, ch, RotationAxis.y, Axis.x, r, h):
-            # removed, now check top view
-            operator.report({'INFO'}, "Fits!")
-        else:
-            # cannot remove vertical intersections, failed
-            operator.report({'INFO'}, "Doesn't fit: cannot remove axis-aligned intersections")
+        if intersections.try_remove_diagonal(bb, ch, r, h):
+            return "Fits!"
     
+    # retry with other axis aligned removal
+
+    transform.store(bb, initial_transform)
+
+    # try rotating along shortest component
+    if intersections.try_remove_axis_aligned(bb, ch, Axis.y, Axis.x, r, h):
+        if intersections.try_remove_diagonal(bb, ch, r, h):
+            return "Fits!"
+        else:
+            return "Doesn't fit: cannot remove diagonal intersections"
+    else:
+        # cannot remove vertical intersections, failed
+        return "Doesn't fit: cannot remove axis-aligned intersections"
 
 

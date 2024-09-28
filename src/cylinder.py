@@ -1,6 +1,6 @@
 import bpy
 
-name = "CJFIT_Cylinder"
+name = "CJFIT Cylinder"
 
 def update(props, context):
     remove_existing(context)

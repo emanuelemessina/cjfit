@@ -2,22 +2,31 @@ import math
 from . import transform
 from .transform import Direction, Axis
 from . import commands
-import bpy
 
-def get_boundaries_crosses(object, axis, lower_bound, upper_bound):
+def get_world_vertices(object):
+    return [object.matrix_world @ v.co for v in object.data.vertices]
 
-    world_vertices = [object.matrix_world @ v.co for v in object.data.vertices]
+def get_boundaries_crosses(object, axis, bounds):
+
+    world_vertices = get_world_vertices(object)
     
     axis_values = [getattr(v,axis.value) for v in world_vertices]
-    
+
+    if isinstance(bounds, (int, float)):
+        lower_bound = -bounds/2
+        upper_bound = bounds/2
+    else:
+        lower_bound = bounds[0]
+        upper_bound = bounds[1]
+
     crosses_lower = any(a < lower_bound for a in axis_values)
     crosses_upper = any(a > upper_bound for a in axis_values)
     
     return crosses_lower, crosses_upper
 
 
-def center_adjust(bounding_box, object, axis, lower_bound, upper_bound, step=transform.adjustment_step):
-        crosses_lower, crosses_upper = get_boundaries_crosses(object, axis, lower_bound, upper_bound)
+def center_adjust_axial(bounding_box, convex_hull, axis, bounds):
+        crosses_lower, crosses_upper = get_boundaries_crosses(convex_hull, axis, bounds)
 
         # choose a direction anyway, if not intersecting the loop will exit            
         if crosses_lower:
@@ -28,48 +37,133 @@ def center_adjust(bounding_box, object, axis, lower_bound, upper_bound, step=tra
         while True:
             if (crosses_lower and not crosses_upper and direction == Direction.positive) or (crosses_upper and not crosses_lower and direction == Direction.negative):
                 # continue to nudge until the single boundary stop intersecting
-                transform.nudge(bounding_box, axis, direction, step)
-                crosses_lower, crosses_upper = get_boundaries_crosses(object, axis, lower_bound, upper_bound)
+                transform.nudge(bounding_box, axis, direction)
+                crosses_lower, crosses_upper = get_boundaries_crosses(convex_hull, axis, bounds)
                 continue
             else:
                 # solved or both boundaries intersecting
-                return (crosses_lower or crosses_upper) # returns intersecting
+                return not (crosses_lower and crosses_upper) # returns solved
 
-def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, adjust_axis, lower_bound, upper_bound, rotation_step=transform.rotation_step):
-
-    max_rotation = math.radians(90)
+def try_remove_axis_aligned(bounding_box, convex_hull, rotation_axis, horizontal_axis, radius, height):
+    if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=rotation_axis, adjust_axis=Axis.z, bounds=height):
+        # vertical intersections removed
+        # try to remove horizontal intersections by another rotate adjust
+        if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=rotation_axis, adjust_axis=horizontal_axis, bounds=radius*2):
+            # check vertical intersections again
+            return center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height)
+        else:
+            return False
+    else:
+        # cannot remove vertical intersections
+        return False
     
-    total_rotation = 0.0
+def get_vertex_quadrant(vertex):
+    x, y = vertex.x, vertex.y
+    if x > 0 and y > 0:
+        return 1   # Quadrant I
+    elif x < 0 and y > 0:
+        return 2  # Quadrant II
+    elif x < 0 and y < 0:
+        return 3 # Quadrant III
+    elif x > 0 and y < 0:
+        return 4  # Quadrant IV
 
-    solved = False
+def are_adjacent_quadrants(quadrants):    
+    n = len(quadrants)
+    if n == 1:
+        # If there's only 1 quadrant, return True (it's technically adjacent to itself)
+        return True
+    elif n == 2:
+        # If there are exactly 2 quadrants, check if they are adjacent
+        quadrants = list(quadrants)
+        return abs(quadrants[0]-quadrants[1]) != 2
+    else:
+        # More than 2 quadrants -> not adjacent
+        return False
+
+def get_distal_outlier_vertex(convex_hull, radius):
+
+    outliers = []
+    quadrants = set()
+
+    for v in get_world_vertices(convex_hull):
+        norm = math.sqrt(v.x**2 + v.y**2) # square norm is too penalizing
+        if norm > radius:
+            outliers.append((v, norm))
+            quadrants.add(get_vertex_quadrant(v))
+    
+    if len(outliers) == 0:
+        return None
+    
+    if are_adjacent_quadrants(quadrants):
+        return max(outliers, key=lambda item: item[1])
+    else:
+        return -1
+
+def center_adjust_radial(bounding_box, convex_hull, radius):
+    distal_v = get_distal_outlier_vertex(convex_hull, radius)
+    if distal_v == -1:
+        return False # cannot remove intersections (non adjacent quadrants)
+    while distal_v is not None:
+        transform.attract(bounding_box, distal_v)
+    return True # removed intersections
+
+def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, rotation_mode='global', adjust_mode='axial', adjust_axis=None, radius=None, bounds=None, max_rotation=transform.max_rotation):
+
+    total_rotation = 0.0
 
     while total_rotation < max_rotation:
         
-        intersecting = center_adjust(bounding_box, convex_hull, adjust_axis, lower_bound, upper_bound)
+        if adjust_mode == 'axial':
+            if center_adjust_axial(bounding_box, convex_hull, adjust_axis, bounds):
+                return True
+        else:
+            if center_adjust_radial(bounding_box, convex_hull, radius):
+                return True
 
-        if not intersecting:
-            # solved
-            solved = True
-            break
-
-        # both boundaries are crossed, continue rotating
+        # still radial intersections, continue rotating
         
-        bounding_box.rotation_euler[rotation_axis.value] += rotation_step
-        total_rotation += rotation_step
+        if rotation_mode == 'local':
+            bounding_box.rotation_euler.rotate_axis(rotation_axis.to_euler(), transform.rotation_step) # local rotation
+        else:
+            bounding_box.rotation_euler[rotation_axis.to_index()] += transform.rotation_step # global rotation
+
+        total_rotation += transform.rotation_step
         commands.update_scene() # recalc local matrices
     
-    return solved
+    return False
 
-def try_remove_vertical(bounding_box, convex_hull, rotation_axis, horizontal_axis, radius, height):
-    if try_rotate_adjust(bounding_box, convex_hull, rotation_axis, Axis.z, -height/2, height/2):
-        # check horizontal intersections
-        crosses_left, crosses_right = get_boundaries_crosses(convex_hull, horizontal_axis, -radius, radius)
-        if crosses_left or crosses_right:
-            # horizontal intersections (present or created by rotation)
-            return False
-        else:
-            # intersections removed
+def try_remove_diagonal(bounding_box, convex_hull, radius, height):
+    # try to rotate adjust circular around local z axis
+    
+    initial_transform = transform.save(bounding_box)
+
+    max_rotation = math.radians(180)
+
+    if try_rotate_adjust(bounding_box,convex_hull, rotation_mode='local', rotation_axis=Axis.z, adjust_mode='radial', radius=radius, max_rotation=max_rotation):
+        # removed, check for vertical intersections
+        if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
             return True
+    
+    # cannot remove with local z rotation, try horizonal component rotation
+    transform.store(bounding_box, initial_transform)
+    
+    if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=Axis.x, adjust_mode='radial', radius=radius):
+        # removed diagonal intersections
+        # check for formed vertical intersections
+        if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
+            return True
+    
+    # roll back and try on y
+    transform.store(bounding_box, initial_transform)
+    
+    if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=Axis.y, adjust_mode='radial', radius=radius):
+        # removed diagonal intersecions
+        # check for formed vertical intersections
+        if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
+            return True
+        else:
+            # cannot remove diagonal intersections, failed
+            return False
     else:
-        # cannot remove vertical intersections
         return False
