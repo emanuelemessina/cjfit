@@ -1,5 +1,4 @@
 make cylinder unselectable
 disable test button if no object is selected (and if the cylinder itself is selected, to be sure)
-make checkbox to show/hide cylinder
 display props with world units
 dependency installer
