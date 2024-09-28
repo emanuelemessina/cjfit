@@ -1,5 +1,3 @@
-adjust code to handle h<=d (modify fix pca xy)
-
 make cylinder unselectable
 disable test button if no object is selected (and if the cylinder itself is selected, to be sure)
 make checkbox to show/hide cylinder
