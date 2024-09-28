@@ -1,5 +1,5 @@
 import numpy as np
-from mathutils import Vector, Matrix
+from mathutils import Matrix
 from sklearn.decomposition import PCA
 from . import commands
 

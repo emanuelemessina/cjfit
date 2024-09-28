@@ -3,6 +3,7 @@ from . import transform
 from .transform import Direction, Axis
 from . import commands
 from collections import deque
+from mathutils import Euler
 
 def get_world_vertices(object):
     return [object.matrix_world @ v.co for v in object.data.vertices]
@@ -45,11 +46,11 @@ def center_adjust_axial(bounding_box, convex_hull, axis, bounds):
                 # solved or both boundaries intersecting
                 return not (crosses_lower and crosses_upper) # returns solved
 
-def try_remove_axis_aligned(bounding_box, convex_hull, rotation_axis, horizontal_axis, radius, height):
+def try_remove_axis_aligned(bounding_box, convex_hull, rotation_axis, radius, height):
     if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=rotation_axis, adjust_axis=Axis.z, bounds=height):
         # vertical intersections removed
         # try to remove horizontal intersections by another rotate adjust
-        if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=rotation_axis, adjust_axis=horizontal_axis, bounds=radius*2):
+        if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=rotation_axis, adjust_axis=(Axis.y if rotation_axis == Axis.x else Axis.x), bounds=radius*2):
             # check vertical intersections again
             return center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height)
         else:
@@ -156,23 +157,22 @@ def try_rotate_adjust(bounding_box, convex_hull, rotation_axis, rotation_mode='g
     # check if last rotation resolved
     return center_adjust(bounding_box, convex_hull, adjust_mode, adjust_axis, radius, bounds)
 
-def try_remove_diagonal(bounding_box, convex_hull, radius, height):
-    # try to rotate adjust circular around local z axis
-    
+def try_remove_radial(bounding_box, convex_hull, radius, height):
+        
     initial_transform = transform.save(bounding_box)
 
-    max_rotation = math.radians(180)
-
-    if try_rotate_adjust(bounding_box,convex_hull, rotation_mode='local', rotation_axis=Axis.z, adjust_mode='radial', radius=radius, max_rotation=max_rotation):
-        # removed, check for vertical intersections
-        if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
-            return True
+    if bounding_box.rotation_euler != Euler((0,0,0)):
+        # z tilted, try to rotate adjust circular around local z axis
+        if try_rotate_adjust(bounding_box,convex_hull, rotation_mode='local', rotation_axis=Axis.z, adjust_mode='radial', radius=radius, max_rotation=math.radians(180)):
+            # removed, check for vertical intersections
+            if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
+                return True
     
-    # cannot remove with local z rotation, try horizonal component rotation
+    # cannot remove with local z rotation, try horizontal component rotation
     transform.store(bounding_box, initial_transform)
     
     if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=Axis.x, adjust_mode='radial', radius=radius):
-        # removed diagonal intersections
+        # removed radial intersections
         # check for formed vertical intersections
         if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
             return True
@@ -181,12 +181,12 @@ def try_remove_diagonal(bounding_box, convex_hull, radius, height):
     transform.store(bounding_box, initial_transform)
     
     if try_rotate_adjust(bounding_box, convex_hull, rotation_axis=Axis.y, adjust_mode='radial', radius=radius):
-        # removed diagonal intersecions
+        # removed radial intersecions
         # check for formed vertical intersections
         if center_adjust_axial(bounding_box, convex_hull, Axis.z, bounds=height):
             return True
         else:
-            # cannot remove diagonal intersections, failed
+            # cannot remove radial intersections, failed
             return False
     else:
         return False

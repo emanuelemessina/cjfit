@@ -21,7 +21,7 @@ def run(jig, r, h):
     commands.parent_keep_transform(jig, ch)
 
     # R1
-    # eigenvecs: z>x>y                   x>y>z 
+    # eigenvecs: z>x>y                   x>y>z
     alignment = [1,2,0] if h > 2*r else [0,1,2]
     [pca_rotate(ch, alignment) for i in range(3)] # make it converge
 
@@ -39,23 +39,23 @@ def run(jig, r, h):
     # save initial transform
     initial_transform = transform.save(bb)
 
-    # try remove aa intersections (rotate along second shortest horizontal component)
+    # try remove aa intersections (rotate along biggest horizontal component)
 
-    if intersections.try_remove_axis_aligned(bb, ch, Axis.x, Axis.y, r, h):
+    if intersections.try_remove_axis_aligned(bb, ch, Axis.x, r, h):
         # removed, now check top view
-        if intersections.try_remove_diagonal(bb, ch, r, h):
+        if intersections.try_remove_radial(bb, ch, r, h):
             return "Fits!"
     
     # retry with other axis aligned removal
 
     transform.store(bb, initial_transform)
 
-    # try rotating along shortest component
-    if intersections.try_remove_axis_aligned(bb, ch, Axis.y, Axis.x, r, h):
-        if intersections.try_remove_diagonal(bb, ch, r, h):
+    # try rotating along shortest horizontal component
+    if intersections.try_remove_axis_aligned(bb, ch, Axis.y, r, h):
+        if intersections.try_remove_radial(bb, ch, r, h):
             return "Fits!"
         else:
-            return "Doesn't fit: cannot remove diagonal intersections"
+            return "Doesn't fit: cannot remove radial intersections"
     else:
         # cannot remove vertical intersections, failed
         return "Doesn't fit: cannot remove axis-aligned intersections"
