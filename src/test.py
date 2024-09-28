@@ -19,10 +19,11 @@ def run(jig, r, h):
     modifiers.remesh()
 
     commands.parent_keep_transform(jig, ch)
-    #hide(jig)
 
     # R1
-    [pca_rotate(ch) for i in range(3)] # make it converge
+    # eigenvecs: z>x>y                   x>y>z 
+    alignment = [1,2,0] if h > 2*r else [0,1,2]
+    [pca_rotate(ch, alignment) for i in range(3)] # make it converge
 
     bb = commands.duplicate(ch)
     commands.rename(bb, f"{ch.name} BB")
@@ -33,12 +34,12 @@ def run(jig, r, h):
     commands.to_world_origin(bb)
 
     # fix pca x-y assignment, since it's not consistent
-    fix_pca_xy(corners,bb)
+    fix_pca_xy(bb, corners, alignment)
     
     # save initial transform
     initial_transform = transform.save(bb)
 
-    # try remove aa intersections (rotate along second shortest component)
+    # try remove aa intersections (rotate along second shortest horizontal component)
 
     if intersections.try_remove_axis_aligned(bb, ch, Axis.x, Axis.y, r, h):
         # removed, now check top view
