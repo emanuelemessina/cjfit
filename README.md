@@ -1,6 +1,6 @@
 # CJFIT: Cylindrical Jig Fit Test
 
-Implementation of the [CJFIT algorithm](doc/CJFIT.pdf) as a Blender Add-on.
+Implementation of the [CJFIT algorithm](doc/cjfit.pdf) as a Blender Add-on.
 
 The current implementation uses iterative roto-translation with fixed step size to remove intersections.
 
