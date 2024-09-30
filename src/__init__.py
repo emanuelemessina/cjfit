@@ -1,16 +1,3 @@
-bl_info = {
-    "name": "CJFIT",
-    "blender": (4, 0, 0),
-    "category": "Object",
-    "version": (1, 0),
-    "author": "Emanuele Messina",
-    "location": "View3D > IPCV",
-    "description": "Cylindrical Jig Fit Test",
-    "warning": "",
-    "wiki_url": "github.com/emanuelemessina/cjfit",
-    "tracker_url": "",
-}
-
 import bpy
 
 from . import operators

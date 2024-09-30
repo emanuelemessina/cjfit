@@ -1,5 +1,11 @@
 import bpy
 from . import cylinder
+from . import commands
+
+def check_active_object():
+    obj = bpy.context.active_object
+
+    return obj is not None and obj.type == 'MESH' and obj.name != cylinder.name
 
 class Panel(bpy.types.Panel):
     bl_label = "CJFIT"
@@ -20,6 +26,6 @@ class Panel(bpy.types.Panel):
 
         row = layout.row()
         row.operator("object.test", text="Test")
-        row.enabled = True
+        row.enabled = check_active_object()
 
 classes = [Panel]

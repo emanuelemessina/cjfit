@@ -14,6 +14,7 @@ def update(props, context):
 
     obj = context.active_object
     obj.name = name
+    obj.hide_select = True # make unselectable in the viewport
 
 def remove_existing(context):
     for obj in context.scene.objects:
