@@ -57,6 +57,6 @@ the object will be in the last orientation and position where the algorithm conc
 
 ## Build from source
 
-`blender --command extension build --split-platforms --source-dir src --output-dir ../build`
+`blender --command extension build --split-platforms --source-dir src --output-dir build`
 
 
